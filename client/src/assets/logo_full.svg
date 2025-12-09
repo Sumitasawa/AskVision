@@ -1,0 +1,29 @@
+<svg width="260" height="90" viewBox="0 0 260 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+<!-- Gradient Square Background -->
+<rect x="0" y="0" width="52" height="52" rx="12" fill="url(#gradient)" />
+
+<!-- AV Circle Logo -->
+<circle cx="26" cy="26" r="18" fill="none" stroke="white" stroke-width="3" opacity="0.85"/>
+<path d="M18 32L26 18L34 32" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M26 22V32" stroke="white" stroke-width="3" stroke-linecap="round"/>
+
+<!-- AskVision Text -->
+<text x="65" y="32" font-family="Inter, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">
+  Ask<tspan fill="url(#gradient)">Vision</tspan>
+</text>
+
+<!-- Tagline -->
+<text x="65" y="55" font-family="Inter, sans-serif" font-size="14" font-weight="400" fill="#CCCCCC">
+  Intelligent AI Assistance
+</text>
+
+<!-- Gradient Def -->
+<defs>
+<linearGradient id="gradient" x1="52" y1="0" x2="0" y2="52" gradientUnits="userSpaceOnUse">
+  <stop stop-color="#40B5F6"/>
+  <stop offset="1" stop-color="#A356F7"/>
+</linearGradient>
+</defs>
+
+</svg>
