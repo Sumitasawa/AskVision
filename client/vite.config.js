@@ -5,9 +5,13 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: "dist",
+
+    
     chunkSizeWarningLimit: 1000,
+
     rollupOptions: {
       onwarn(warning, warn) {
+ 
         if (
           warning.code === "CHUNK_SIZE_LIMIT" ||
           warning.code === "MODULE_LEVEL_DIRECTIVE"
