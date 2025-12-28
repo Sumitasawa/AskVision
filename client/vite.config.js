@@ -1,10 +1,21 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-// https://vite.dev/config/
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react()],
   build: {
-    outDir: "dist"
+    outDir: "dist",
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (
+          warning.code === "CHUNK_SIZE_LIMIT" ||
+          warning.code === "MODULE_LEVEL_DIRECTIVE"
+        ) {
+          return;
+        }
+        warn(warning);
+      },
+    },
   },
-})
+});
