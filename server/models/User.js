@@ -4,7 +4,6 @@ import bcrypt from "bcryptjs";
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-
     email: {
       type: String,
       required: true,
@@ -12,14 +11,12 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true
     },
-
     password: { 
       type: String,
       required: true,
       minlength: 6,
       select: false
     },
-
     credits: {
       type: Number,
       default: 20
@@ -28,13 +25,9 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ============================================================================
-// FIXED ALWAYS-WORKING PASSWORD HASHING MIDDLEWARE
-// ============================================================================
 
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
-
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });

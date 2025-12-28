@@ -1,6 +1,6 @@
 import express from "express";
-import { registerUser, LoginUser, getUser, getPublishedImages } from "../controllers/UserController.js";
-import { protect } from "../middlewares/auth.js";
+import { registerUser, loginUser, getUser, getPublishedImages } from "../controllers/UserController.js";
+import { protect } from "../middlewares/auth.Middleware.js";
 
 const userRouter = express.Router();
 
@@ -8,7 +8,7 @@ const userRouter = express.Router();
 userRouter.post("/register", registerUser);
 
 // Login user
-userRouter.post("/login", LoginUser);
+userRouter.post("/login", loginUser);
 
 // Get currently authenticated user
 userRouter.get("/me", protect, getUser);

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { dummyChats, dummyUserData } from "../assets/assets";
+import api from "../services/api";
 
 const AppContext = createContext();
 
@@ -10,71 +10,130 @@ export const AppContextProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
-  const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
+  const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
 
-  // 🔥 Enable Dark Mode
+  /* THEME */
   useEffect(() => {
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // 🔥 Fetch user (Dummy for now)
-  const fetchUser = async () => {
-    setUser(dummyUserData);
-  };
-
-  // 🔥 Fetch user chats (Dummy for now)
-  const fetchUserChat = async () => {
-    setChats(dummyChats);
-    setSelectedChat(null);
-  };
-
-  // Load chats whenever user changes
-  useEffect(() => {
-    if (user) {
-      fetchUserChat();
-    } else {
-      setChats([]);
-      setSelectedChat(null);
+  /* LOAD USER */
+  const loadUser = async () => {
+    try {
+      const res = await api.get("/api/users/me");
+      if (res.data.success) {
+        setUser(res.data.user);
+      }
+    } catch {
+      localStorage.removeItem("token");
+      setUser(null);
     }
-  }, [user]);
+  };
 
-  // Load user on mount
   useEffect(() => {
-    fetchUser();
+    loadUser();
   }, []);
 
-  // ⭐ CREATE NEW CHAT FUNCTION ⭐
-  const createNewChat = () => {
-    const newChat = {
-      _id: Date.now().toString(),
-      name: "New Chat",
-      messages: [],
-      updatedAt: new Date().toISOString(),
-    };
+  /* AUTH */
+  const loginUser = async (email, password) => {
+    try {
+      const res = await api.post("/api/users/login", { email, password });
 
-    setChats((prev) => [newChat, ...prev]); // add on top
-    setSelectedChat(newChat); // make new chat active
+      if (res.data.success) {
+        localStorage.setItem("token", res.data.token);
+        setUser(res.data.user);
+        navigate("/");
+        return { success: true };
+      }
+      return res.data;
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
   };
 
-  const value = {
-    navigate,
-    user,
-    setUser,
-    chats,
-    setChats,
-    selectedChat,
-    setSelectedChat,
-    theme,
-    setTheme,
-    createNewChat, 
+  const registerUser = async (name, email, password) => {
+    try {
+      const res = await api.post("/api/users/register", {
+        name,
+        email,
+        password,
+      });
+
+      if (res.data.success) {
+        localStorage.setItem("token", res.data.token);
+        await loadUser();
+        navigate("/");
+        return { success: true };
+      }
+      return res.data;
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
   };
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  const logout = () => {
+    localStorage.removeItem("token");
+    setUser(null);
+    setChats([]);
+    setSelectedChat(null);
+    navigate("/login");
+  };
+
+  /* FETCH CHATS */
+  const fetchChats = async () => {
+    try {
+      const res = await api.get("/api/chats");
+      if (res.data.success) {
+        setChats(res.data.chats);
+
+        // Auto-select latest chat
+        if (!selectedChat && res.data.chats.length > 0) {
+          setSelectedChat(res.data.chats[0]);
+        }
+      }
+    } catch (err) {
+      console.log("Fetch Chats Error:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) fetchChats();
+  }, [user]);
+
+  /* CREATE NEW CHAT */
+  const createNewChat = async () => {
+    try {
+      const res = await api.post("/api/chats");
+
+      if (res.data.success) {
+        // IMPORTANT: refetch real chats
+        await fetchChats();
+      }
+    } catch (err) {
+      console.log("Create Chat Error:", err);
+    }
+  };
+
+  return (
+    <AppContext.Provider
+      value={{
+        user,
+        loginUser,
+        registerUser,
+        logout,
+        chats,
+        setChats,
+        selectedChat,
+        setSelectedChat,
+        theme,
+        setTheme,
+        createNewChat,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
 };
 
 export const useAppContext = () => useContext(AppContext);

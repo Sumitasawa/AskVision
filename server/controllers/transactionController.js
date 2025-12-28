@@ -2,9 +2,7 @@ import Transaction from "../models/Transaction.js";
 import razorpay from "../configs/razorpay.js";
 import User from "../models/User.js";
 import crypto from "crypto";
-
-// ---------------------- AVAILABLE PLANS ----------------------
-
+/*AVAILABLE PLANS*/
 export const plans = [
   {
     _id: "basic",
@@ -46,37 +44,50 @@ export const plans = [
   }
 ];
 
-// ---------------------- GET ALL PLANS ----------------------
+/*GET ALL PLANS */
 
 export const getPlans = async (req, res) => {
   try {
-    res.json({ success: true, plans });
+    return res.status(200).json({
+      success: true,
+      plans
+    });
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    console.error("Get Plans Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch plans"
+    });
   }
 };
 
-// ---------------------- PURCHASE PLAN ----------------------
-
+/*PURCHASE PLAN (CREATE RAZORPAY ORDER)*/
 export const purchasePlan = async (req, res) => {
   try {
     const { planId } = req.body;
     const userId = req.user._id;
-
+    if (!planId) {
+      return res.status(400).json({
+        success: false,
+        message: "planId is required"
+      });
+    }
     const plan = plans.find((p) => p._id === planId);
-
     if (!plan) {
-      return res.json({ success: false, message: "Invalid Plan" });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid plan selected"
+      });
     }
 
     // Create Razorpay order
     const order = await razorpay.orders.create({
-      amount: plan.price * 100, // Razorpay expects paise
+      amount: plan.price * 100, // paise
       currency: "INR",
       receipt: `receipt_${Date.now()}`
     });
 
-    // Save transaction in DB
+    // Save transaction
     const transaction = await Transaction.create({
       userId,
       planId: plan._id,
@@ -86,7 +97,7 @@ export const purchasePlan = async (req, res) => {
       isPaid: false
     });
 
-    return res.json({
+    return res.status(200).json({
       success: true,
       orderId: order.id,
       amount: plan.price,
@@ -97,12 +108,15 @@ export const purchasePlan = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Purchase Error:", error);
-    return res.json({ success: false, message: error.message });
+    console.error("Purchase Plan Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create payment order"
+    });
   }
 };
 
-// ---------------------- VERIFY PAYMENT ----------------------
+/* VERIFY PAYMENT (SECURE SIGNATURE CHECK)*/
 
 export const verifyPayment = async (req, res) => {
   try {
@@ -113,8 +127,21 @@ export const verifyPayment = async (req, res) => {
       transactionId
     } = req.body;
 
-    // 1️⃣ Validate signature
-    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    // Validation
+    if (
+      !razorpay_order_id ||
+      !razorpay_payment_id ||
+      !razorpay_signature ||
+      !transactionId
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing payment details"
+      });
+    }
+
+    // Signature verification
+    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
 
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
@@ -122,15 +149,13 @@ export const verifyPayment = async (req, res) => {
       .digest("hex");
 
     if (expectedSignature !== razorpay_signature) {
-      return res.json({
+      return res.status(400).json({
         success: false,
         message: "Payment verification failed"
       });
     }
-
-    // 2️⃣ Update transaction as paid
-    const transaction = await Transaction.findByIdAndUpdate(
-      transactionId,
+    const transaction = await Transaction.findOneAndUpdate(
+      { _id: transactionId, isPaid: false },
       {
         isPaid: true,
         razorpayPaymentId: razorpay_payment_id,
@@ -140,23 +165,27 @@ export const verifyPayment = async (req, res) => {
     );
 
     if (!transaction) {
-      return res.json({ success: false, message: "Transaction not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found or already verified"
+      });
     }
-
-    // 3️⃣ Add credits to user wallet
     await User.updateOne(
       { _id: transaction.userId },
       { $inc: { credits: transaction.credits } }
     );
 
-    return res.json({
+    return res.status(200).json({
       success: true,
-      message: "Payment verified successfully & credits added",
+      message: "Payment verified successfully",
       addedCredits: transaction.credits
     });
 
   } catch (error) {
-    console.error("Verification Error:", error);
-    return res.json({ success: false, message: error.message });
+    console.error("Verify Payment Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Payment verification failed"
+    });
   }
 };

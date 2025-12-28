@@ -1,91 +1,66 @@
 import Chat from "../models/Chat.js";
 import mongoose from "mongoose";
 
-// ============================================================================
-// 📌 CREATE NEW CHAT — FIXED
-// ============================================================================
-
+// CREATE CHAT
 export const createChat = async (req, res) => {
   try {
-    const userId = req.user._id;
-
-    const chatData = {
-      userId,
-      messages: [],
+    const chat = await Chat.create({
+      userId: req.user._id,
+      username: req.user.name,
       chatname: "New Chat",
-      username: req.user.name
-    };
-
-    const newChat = await Chat.create(chatData);
-
-    // Return the new chat ID so frontend navigates to it
-    res.json({
-      success: true,
-      message: "Chat created",
-      chatId: newChat._id
+      messages: [],
     });
 
+    res.status(201).json({
+      success: true,
+      chatId: chat._id,
+    });
   } catch (error) {
     console.error("Create Chat Error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: "Failed to create chat" });
   }
 };
 
-
-// ============================================================================
-// 📌 GET ALL CHATS — FIXED
-// ============================================================================
-
+// GET CHATS
 export const getChat = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const chats = await Chat.find({ userId: req.user._id })
+      .select("_id chatname updatedAt")
+      .sort({ updatedAt: -1 })
+      .lean();
 
-    const chats = await Chat.find({ userId })
-      .sort({ updatedAt: -1 });
-
-    res.json({
-      success: true,
-      message: "Chats fetched",
-      chats
-    });
-
+    res.json({ success: true, chats });
   } catch (error) {
     console.error("Get Chats Error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: "Failed to fetch chats" });
   }
 };
 
-
-// ============================================================================
-// 📌 DELETE CHAT — FIXED + VALIDATION + SAFETY CHECKS
-// ============================================================================
-
+// DELETE CHAT
 export const deleteChat = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const { chatId } = req.body;
+     const userId = req.user._id;
+    const { chatId } = req.params;
 
-    // 1️⃣ Validate
-    if (!chatId) {
-      return res.status(400).json({ success: false, message: "chatId is required" });
-    }
-
-    // 2️⃣ Prevent crash if chatId is not a valid ObjectId
-    if (!mongoose.Types.ObjectId.isValid(chatId)) {
+    if (!chatId || !mongoose.Types.ObjectId.isValid(chatId)) {
       return res.status(400).json({ success: false, message: "Invalid chatId" });
     }
 
-    // 3️⃣ Delete chat that belongs to the user
-    const result = await Chat.deleteOne({ _id: chatId, userId });
+    const deleted = await Chat.deleteOne({
+      _id: chatId,
+      userId: req.user._id,
+    });
 
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ success: false, message: "Chat not found or unauthorized" });
+    if (!deleted.deletedCount) {
+      return res.status(404).json({
+        success: false,
+        message: "Chat not found or unauthorized",
+      });
     }
 
     res.json({ success: true, message: "Chat deleted" });
-
   } catch (error) {
     console.error("Delete Chat Error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: "Failed to delete chat" });
   }
 };

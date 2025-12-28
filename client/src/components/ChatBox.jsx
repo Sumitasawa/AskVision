@@ -1,190 +1,194 @@
 import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
 import { useAppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 import Message from "./Message";
 
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "");
+
 const ChatBox = () => {
-  const { selectedChat, theme } = useAppContext();
+  const {
+    selectedChat,
+    setSelectedChat,
+    chats,
+    setChats,
+    theme,
+    createNewChat,
+  } = useAppContext();
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // Input states
-  const [mode, setMode] = useState("text"); // "text" | "image"
+  const [mode, setMode] = useState("text");
   const [inputText, setInputText] = useState("");
   const [isPublished, setIsPublished] = useState(false);
 
   const bottomRef = useRef(null);
 
-  // Load messages
+  /* LOAD MESSAGES */
   useEffect(() => {
     if (selectedChat) {
       setMessages(selectedChat.messages || []);
+    } else {
+      setMessages([]);
     }
   }, [selectedChat]);
 
-  // Auto scroll
+  /* AUTO SCROLL */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // SEND Handler
-  const handleSend = (e) => {
+  /* SEND MESSAGE */
+  const handleSend = async (e) => {
     e.preventDefault();
-
     if (!inputText.trim()) return;
+    if (!selectedChat) {
+      await createNewChat();
+      return;
+    }
 
-    // User message
-    const newMessage = {
+    const token = localStorage.getItem("token");
+
+    const userPrompt = inputText;
+    const userMessage = {
       role: "user",
-      content: inputText,
+      content: userPrompt,
       timestamp: Date.now(),
-      generateImage: mode === "image",
-      publish: isPublished,
+      isImage: false,
     };
 
-    setMessages((prev) => [...prev, newMessage]);
-
-    // Reset states
+    setMessages((prev) => [...prev, userMessage]);
     setInputText("");
-    setIsPublished(false);
-
-    // AI response loading
     setLoading(true);
 
-    setTimeout(() => {
-      // Fake AI Logic
-      const aiMessage =
-        mode === "image"
-          ? {
-              role: "assistant",
-              isImage: true,
-              content: assets.sample_image, // Later replace with actual generated image URL
-              timestamp: Date.now(),
-            }
-          : {
-              role: "assistant",
-              content: "Generated text response.",
-              timestamp: Date.now(),
-            };
+    try {
+      const url =
+       mode === "image"
+    ? `${API_BASE_URL}/api/chats/${selectedChat._id}/image`
+    : `${API_BASE_URL}/api/chats/${selectedChat._id}/message`;
 
-      setMessages((prev) => [...prev, aiMessage]);
+
+      const payload =
+        mode === "image"
+          ? { prompt: userPrompt, isPublished }
+          : { prompt: userPrompt };
+
+      const res = await axios.post(url, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.data.success) {
+        const reply = res.data.reply;
+        setMessages((prev) => [...prev, reply]);
+
+        /* FRONTEND TITLE SYNC */
+        if (
+          selectedChat.chatname === "New Chat" &&
+          selectedChat.messages?.length === 0
+        ) {
+          const newTitle = userPrompt
+            .split(" ")
+            .slice(0, 6)
+            .join(" ")
+            .slice(0, 30);
+
+          // Update selectedChat
+          const updatedChat = {
+            ...selectedChat,
+            chatname: newTitle,
+            messages: [userMessage, reply],
+          };
+
+          setSelectedChat(updatedChat);
+
+          // Update sidebar chats
+          setChats((prev) =>
+            prev.map((chat) =>
+              chat._id === selectedChat._id
+                ? { ...chat, chatname: newTitle }
+                : chat
+            )
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Message Send Error:", error?.response?.data || error.message);
+    } finally {
       setLoading(false);
-    }, 2000);
+      setIsPublished(false);
+    }
   };
 
   return (
     <div className="p-5 h-screen flex flex-col text-black dark:text-white">
-
-      {/* Chat Messages */}
+      {/* CHAT AREA */}
       <div className="flex-1 overflow-y-auto pr-2">
-
-        {/* Empty State */}
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full opacity-70">
             <img
               src={theme === "dark" ? assets.logo_full : assets.logo_full_dark}
               className="w-40 mb-4"
-              alt="AskVision Logo"
+              alt="AskVision"
             />
-            <p className="text-lg font-medium text-center">
-              Ask me anything...
-            </p>
+            <p className="text-lg font-medium">Ask me anything...</p>
           </div>
         )}
 
-        {/* Render Messages */}
         {messages.length > 0 && (
           <div className="space-y-6">
             {messages.map((msg, i) => (
               <Message key={i} message={msg} />
             ))}
 
-            {/* Typing Loader */}
             {loading && (
               <div className="flex items-start gap-3 my-4">
-                <div className="max-w-[75%] p-4 rounded-2xl shadow-sm 
-                                bg-gray-100 dark:bg-white/10 rounded-bl-none">
-                  <div className="flex gap-2 items-center">
-                    <span className="w-2 h-2 bg-gray-400 dark:bg-white/40 rounded-full animate-bounce"></span>
-                    <span className="w-2 h-2 bg-gray-400 dark:bg-white/40 rounded-full animate-bounce delay-150"></span>
-                    <span className="w-2 h-2 bg-gray-400 dark:bg-white/40 rounded-full animate-bounce delay-300"></span>
+                <div className="max-w-[75%] p-4 rounded-2xl bg-gray-100 dark:bg-white/10">
+                  <div className="flex gap-2">
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300" />
                   </div>
                 </div>
               </div>
             )}
           </div>
         )}
-
-        <div ref={bottomRef}></div>
+        <div ref={bottomRef} />
       </div>
 
-      {/* INPUT SECTION */}
-      <form onSubmit={handleSend} className="mt-4 bg-gray-100 dark:bg-white/10 p-4 rounded-xl">
-
-        {/* Toggle Buttons */}
-        <div className="flex items-center gap-3 mb-3">
-          <button
-            type="button"
-            onClick={() => setMode("text")}
-            className={`px-4 py-1 rounded-lg text-sm font-medium transition
-              ${mode === "text"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-300 dark:bg-white/20 text-black dark:text-white"}`}
-          >
+      {/* INPUT */}
+      <form onSubmit={handleSend} className="mt-4 p-4 rounded-xl bg-gray-100 dark:bg-white/10">
+        <div className="flex gap-3 mb-3">
+          <button type="button" onClick={() => setMode("text")} className={mode === "text" ? "bg-blue-600 text-white px-4 py-1 rounded" : "px-4 py-1 bg-gray-300 rounded"}>
             Text
           </button>
-
-          <button
-            type="button"
-            onClick={() => setMode("image")}
-            className={`px-4 py-1 rounded-lg text-sm font-medium transition
-              ${mode === "image"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-300 dark:bg-white/20 text-black dark:text-white"}`}
-          >
+          <button type="button" onClick={() => setMode("image")} className={mode === "image" ? "bg-blue-600 text-white px-4 py-1 rounded" : "px-4 py-1 bg-gray-300 rounded"}>
             Image
           </button>
         </div>
 
-        {/* TEXT INPUT FOR BOTH MODES */}
-        <div className="flex flex-col gap-3">
+        <input
+          type="text"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          placeholder={mode === "image" ? "Describe image..." : "Type message..."}
+          className="w-full p-3 rounded border bg-transparent"
+        />
 
-          {/* Prompt Input */}
-          <input
-            type="text"
-            placeholder={
-              mode === "image"
-                ? "Describe the image you want to generate..."
-                : "Type your message..."
-            }
-            className="w-full bg-transparent outline-none text-sm dark:placeholder-white/40 p-3 rounded-lg border border-gray-300 dark:border-white/10"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-          />
+        {mode === "image" && (
+          <label className="flex gap-2 text-sm mt-2">
+            <input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} />
+            Publish to community
+          </label>
+        )}
 
-          {/* Checkbox only for Image Mode */}
-          {mode === "image" && (
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input
-                type="checkbox"
-                checked={isPublished}
-                onChange={(e) => setIsPublished(e.target.checked)}
-                className="w-4 h-4 accent-blue-600 cursor-pointer"
-              />
-              Publish generated image to community
-            </label>
-          )}
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="px-4 py-2 bg-gradient-to-r from-[#A456F7] to-[#40B5F6]
-                      text-white rounded-lg text-sm font-medium hover:opacity-90 transition"
-          >
-            {mode === "image" ? "Generate Image" : "Send Message"}
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={loading || !inputText.trim()}
+          className="mt-3 w-full py-2 bg-gradient-to-r from-[#A456F7] to-[#40B5F6] text-white rounded"
+        >
+          {mode === "image" ? "Generate Image" : "Send Message"}
+        </button>
       </form>
     </div>
   );

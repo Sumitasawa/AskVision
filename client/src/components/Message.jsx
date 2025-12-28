@@ -7,7 +7,7 @@ import { assets } from "../assets/assets";
 
 Prism.manual = true;
 
-// ✅ Separate component for code blocks (so we can use hooks)
+// Separate component for code blocks (so we can use hooks)
 const CodeBlock = ({ inline, className, children, ...props }) => {
   const [copied, setCopied] = useState(false);
 
@@ -34,7 +34,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
 
   return (
     <div className="relative group my-2">
-      {/* ✅ Copy button */}
+      {/* Copy button */}
       <button
         type="button"
         onClick={handleCopy}
@@ -58,7 +58,7 @@ const CodeBlock = ({ inline, className, children, ...props }) => {
 const Message = ({ message }) => {
   const isUser = message.role === "user";
 
-  // ✅ Highlight after markdown is rendered / content changes
+  // Highlight after markdown is rendered / content changes
   useEffect(() => {
     Prism.highlightAll();
   }, [message.content]);
@@ -69,7 +69,7 @@ const Message = ({ message }) => {
         isUser ? "flex-row-reverse" : "flex-row"
       }`}
     >
-      {/* ✅ Avatar only for user */}
+      {/*Avatar only for user */}
       {isUser && (
         <img
           src={assets.user_icon}
@@ -78,7 +78,7 @@ const Message = ({ message }) => {
         />
       )}
 
-      {/* 💬 Chat Bubble */}
+      {/* Chat Bubble */}
       <div
         className={`max-w-[75%] p-4 rounded-2xl shadow-sm transition-all
           ${
@@ -88,7 +88,7 @@ const Message = ({ message }) => {
           }
         `}
       >
-        {/* 🖼 Image message */}
+        {/*Image message */}
         {message.isImage ? (
           <img
             src={message.content}
@@ -96,7 +96,7 @@ const Message = ({ message }) => {
             alt="AI Output"
           />
         ) : (
-          // 📝 Markdown content
+          // Markdown content
           <div className="prose dark:prose-invert max-w-none leading-relaxed text-[15px]">
             <ReactMarkdown
               components={{
@@ -108,7 +108,7 @@ const Message = ({ message }) => {
           </div>
         )}
 
-        {/* ⏱ Timestamp */}
+        {/*Timestamp */}
         <p className="text-xs opacity-60 mt-2 text-right">
           {moment(message.timestamp).fromNow()}
         </p>

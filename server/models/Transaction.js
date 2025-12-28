@@ -6,45 +6,53 @@ const transactionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true
     },
 
     planId: {
       type: String,
-      required: true,
+      required: true
     },
 
     amount: {
       type: Number,
-      required: true,
+      required: true
     },
 
     credits: {
       type: Number,
-      required: true,
+      required: true
+    },
+
+    currency: {
+      type: String,
+      default: "INR"
     },
 
     razorpayOrderId: {
       type: String,
       required: true,
+      index: true
     },
 
     razorpayPaymentId: {
-      type: String,
+      type: String
     },
 
     razorpaySignature: {
-      type: String,
+      type: String
     },
 
     isPaid: {
       type: Boolean,
-      default: false,
-    },
+      default: false
+    }
   },
   {
-    timestamps: true,
+    timestamps: true
   }
 );
 
-const Transaction = mongoose.model("Transaction", transactionSchema);
-export default Transaction;
+transactionSchema.index({ userId: 1, createdAt: -1 });
+
+export default mongoose.model("Transaction", transactionSchema);

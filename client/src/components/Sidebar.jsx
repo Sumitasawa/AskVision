@@ -1,18 +1,24 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 import moment from "moment";
 
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "");
+
 const Sidebar = ({ isMenuOpen, setIsMenuOpen }) => {
+  const navigate = useNavigate();
+
   const {
-    navigate,
     chats,
     setChats,
+    selectedChat,
     setSelectedChat,
     theme,
     setTheme,
     user,
     createNewChat,
+    logout,
   } = useAppContext();
 
   const [search, setSearch] = useState("");
@@ -22,14 +28,38 @@ const Sidebar = ({ isMenuOpen, setIsMenuOpen }) => {
     setIsMenuOpen(false);
   };
 
-  // Delete chat
-  const deleteChat = (id) => {
-    setChats((prev) => prev.filter((c) => c._id !== id));
-    setSelectedChat((prev) => (prev?._id === id ? null : prev));
+  // REAL DELETE
+  const deleteChat = async (chatId) => {
+    if (!chatId) return;
+
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(`${API_BASE_URL}/api/chats/${chatId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        console.error("Delete failed:", data.message);
+        return;
+      }
+
+      setChats((prev) => prev.filter((c) => c._id !== chatId));
+
+      if (selectedChat?._id === chatId) {
+        setSelectedChat(null);
+      }
+    } catch (error) {
+      console.error("Delete chat failed", error);
+    }
   };
 
   return (
-    <div
+    <aside
       className={`
         fixed md:static top-0 left-0 h-screen min-w-72 p-6
         bg-white dark:bg-[#121212]/70 backdrop-blur-2xl
@@ -38,29 +68,32 @@ const Sidebar = ({ isMenuOpen, setIsMenuOpen }) => {
         ${isMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
       `}
     >
-      {/* Mobile Close Button */}
+      {/* Mobile Close */}
       <img
         src={assets.close_icon}
+        alt="Close"
         onClick={() => setIsMenuOpen(false)}
-        className="md:hidden w-7 h-7 absolute top-5 right-5 bg-black/10 dark:bg-white/10 
-                   p-1 rounded-full cursor-pointer dark:invert"
+        className="md:hidden w-7 h-7 absolute top-5 right-5 cursor-pointer dark:invert"
       />
 
       {/* Logo */}
       <img
         src={theme === "dark" ? assets.logo_full : assets.logo_full_dark}
-        className="w-40 mb-6"
+        alt="AskVision"
+        className="w-40 mb-6 cursor-pointer"
+        onClick={() => handleMenuClick("/")}
       />
 
-      {/* New Chat Button */}
+      {/* New Chat */}
       <button
         onClick={() => {
           createNewChat();
+          navigate("/");
           setIsMenuOpen(false);
         }}
         className="w-full py-2.5 mb-4 flex items-center justify-center gap-2
                    bg-gradient-to-r from-[#A456F7] to-[#40B5F6]
-                   text-white font-medium rounded-lg shadow hover:opacity-90"
+                   text-white font-medium rounded-lg hover:opacity-90"
       >
         <span className="text-xl">+</span> New Chat
       </button>
@@ -71,49 +104,51 @@ const Sidebar = ({ isMenuOpen, setIsMenuOpen }) => {
         <img src={assets.search_icon} className="w-4 dark:invert" />
         <input
           type="text"
-          placeholder="Search Conversations"
+          placeholder="Search chats"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="bg-transparent outline-none text-sm w-full"
         />
       </div>
 
-      {/* Recent Chats */}
+      {/* Chats */}
       <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">
         Recent Chats
       </p>
 
       <div className="flex-1 overflow-y-auto space-y-3 pr-1">
         {chats
-          .filter((chat) => {
-            const q = search.toLowerCase();
-            const msg = chat.messages?.[0]?.content?.toLowerCase() || "";
-            return msg.includes(q);
-          })
+          .filter((chat) =>
+            chat.chatname?.toLowerCase().includes(search.toLowerCase())
+          )
           .map((chat) => (
             <div
               key={chat._id}
+              onClick={() => {
+                setSelectedChat(chat);
+                navigate("/");
+                setIsMenuOpen(false);
+              }}
               className="group p-3 bg-gray-100 dark:bg-white/5 border 
                          border-gray-300 dark:border-white/10 rounded-lg 
                          flex justify-between items-center cursor-pointer 
                          hover:bg-gray-200 dark:hover:bg-white/10 transition"
-              onClick={() => {
-                setSelectedChat(chat);
-                setIsMenuOpen(false);
-              }}
             >
               <div className="w-full">
-                <p className="truncate font-medium text-sm text-gray-700 dark:text-white">
-                  {chat.messages?.[0]?.content?.slice(0, 32) || "New Chat"}
+                <p className="truncate font-medium text-sm">
+                  {chat.chatname || "New Chat"}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {chat.updatedAt ? moment(chat.updatedAt).fromNow() : "Recently"}
+                  {chat.updatedAt
+                    ? moment(chat.updatedAt).fromNow()
+                    : "Recently"}
                 </p>
               </div>
 
-              {/* Delete icon */}
+              {/* Delete */}
               <img
                 src={assets.bin_icon}
+                alt="Delete"
                 onClick={(e) => {
                   e.stopPropagation();
                   deleteChat(chat._id);
@@ -125,9 +160,9 @@ const Sidebar = ({ isMenuOpen, setIsMenuOpen }) => {
       </div>
 
       {/* Divider */}
-      <div className="my-5 border-t border-gray-300 dark:border-white/10"></div>
+      <div className="my-5 border-t border-gray-300 dark:border-white/10" />
 
-      {/* Community Images */}
+      {/*Community Images */}
       <div
         onClick={() => handleMenuClick("/community")}
         className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 
@@ -153,7 +188,7 @@ const Sidebar = ({ isMenuOpen, setIsMenuOpen }) => {
       <div
         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
         className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 
-                   dark:hover:bg-white/10 cursor-pointer mt-1"
+                   dark:hover:bg-white/10 cursor-pointer"
       >
         <span className="text-xl">{theme === "dark" ? "🌞" : "🌙"}</span>
         <span className="text-sm">
@@ -161,7 +196,7 @@ const Sidebar = ({ isMenuOpen, setIsMenuOpen }) => {
         </span>
       </div>
 
-      {/* User Section */}
+      {/* User / Logout */}
       <div
         className="flex items-center justify-between p-3 mt-5 bg-gray-100 
                    dark:bg-white/5 border border-gray-300 dark:border-white/10 
@@ -169,22 +204,16 @@ const Sidebar = ({ isMenuOpen, setIsMenuOpen }) => {
       >
         <div className="flex items-center gap-3">
           <img src={assets.user_icon} className="w-6 dark:invert" />
-          <p className="text-sm">{user?.name || "Login your account"}</p>
+          <p className="text-sm truncate">{user?.name}</p>
         </div>
 
-        {user && (
-          <img
-            src={assets.logout_icon}
-            className="w-5 cursor-pointer hover:opacity-75 invert" 
-            onClick={() => {
-              localStorage.removeItem("user");
-              navigate("/");
-              setIsMenuOpen(false);
-            }}
-          />
-        )}
+        <img
+          src={assets.logout_icon}
+          className="w-5 cursor-pointer dark:invert"
+          onClick={logout}
+        />
       </div>
-    </div>
+    </aside>
   );
 };
 

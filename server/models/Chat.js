@@ -1,12 +1,27 @@
 import mongoose from "mongoose";
-
 const MessageSchema = new mongoose.Schema(
   {
-    role: { type: String, required: true }, // "user" | "assistant"
-    content: { type: String, required: true },
-    isImage: { type: Boolean, default: false },
-    isPublished: { type: Boolean, default: false },
-    timestamp: { type: Date, default: Date.now }
+    role: {
+      type: String,
+      enum: ["user", "assistant"],
+      required: true
+    },
+    content: {
+      type: String,
+      required: true
+    },
+    isImage: {
+      type: Boolean,
+      default: false
+    },
+    isPublished: {
+      type: Boolean,
+      default: false
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
   },
   { _id: false }
 );
@@ -24,15 +39,12 @@ const ChatSchema = new mongoose.Schema(
     },
     chatname: {
       type: String,
-      required: true
+      default: "New Chat"
     },
-    messages: [MessageSchema] 
+    messages: [MessageSchema]
   },
-  {
-    timestamps: true 
-  }
+  { timestamps: true }
 );
+ChatSchema.index({ userId: 1, createdAt: -1 });
+export default mongoose.model("Chat", ChatSchema);
 
-const Chat = mongoose.model("Chat", ChatSchema);
-
-export default Chat;
