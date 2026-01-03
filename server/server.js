@@ -11,52 +11,52 @@ import paymentrouter from "./routes/paymentRoutes.js";
 
 const app = express();
 
-
-connectDB()
-  .then(() => console.log("MongoDB Connected"))
-  .catch((err) => {
-    console.error("MongoDB Connection Failed:", err);
-    process.exit(1);
-  });
-
 const allowedOrigins = [
-  "https://ask-vision-erzw.vercel.app", 
+  "https://ask-vision-erzw.vercel.app",
 ];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-    
+    origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("❌ CORS not allowed from this origin"));
-      }
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(null, false);
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 
 app.use(express.json({ limit: "5mb" }));
-app.use(express.urlencoded({ extended: true }));
+
+
+let isConnected = false;
+
+app.use(async (req, res, next) => {
+  if (!isConnected) {
+    try {
+      await connectDB();
+      isConnected = true;
+      console.log("✅ MongoDB Connected");
+    } catch (err) {
+      console.error("❌ MongoDB Error:", err.message);
+    }
+  }
+  next();
+});
+
 
 app.use("/api/users", userRouter);
 app.use("/api/chats", chatRouter);
 app.use("/api/payments", paymentrouter);
 
-
 app.get("/", (req, res) => {
-  res.status(200).send("AskVision API is live");
+  res.send("🚀 AskVision API is live");
 });
 
 
 app.use((err, req, res, next) => {
-  console.error("SERVER ERROR:", err.message);
-
+  console.error("🔥 ERROR:", err.stack);
   res.status(500).json({
     success: false,
     message: err.message || "Internal Server Error",
@@ -64,7 +64,4 @@ app.use((err, req, res, next) => {
 });
 
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🔥 Server running on port ${PORT}`);
-});
+export default app;
